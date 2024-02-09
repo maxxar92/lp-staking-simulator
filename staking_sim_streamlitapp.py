@@ -100,7 +100,7 @@ MINIMUM_APR_THRESHOLD = None
 enable_dynamic_user_selection = False
 if enable_apr_based_staking:
     st.sidebar.write("APR-based parameters:")
-    MINIMUM_APR_THRESHOLD = st.sidebar.slider("Minimum APR Threshold", min_value=0, max_value=100, value=25)  # Minimum APR threshold for staking in percentage
+    MINIMUM_APR_THRESHOLD = st.sidebar.slider("Minimum APR Threshold", min_value=0, max_value=100, value=33)  # Minimum APR threshold for staking in percentage
     enable_dynamic_user_selection = st.sidebar.checkbox("Enable per-day join probability", value=True, help="Users Join with a certain probability each day, instead of picking random start dates.")
     if not enable_dynamic_user_selection:
         min_users = st.sidebar.number_input("Minimum Number of Stakers", min_value=1, max_value=100, value=20)
