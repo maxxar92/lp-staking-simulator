@@ -267,7 +267,7 @@ total_rewards_per_user = calculate_total_rewards_per_user(
     num_users, 
     total_rewards
 )
-show_legend = st.sidebar.checkbox("Show Individual Stakes Legend", value=True)
+show_legend = st.sidebar.checkbox("Show Individual Stakes Legend", value=False)
 
 # Plotting the stake share over time
 fig1, ax = plt.subplots(figsize=(10, 10) if show_legend else (10, 5))
