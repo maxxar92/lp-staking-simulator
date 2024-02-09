@@ -1,6 +1,12 @@
 # lp-staking-simulator
 Simulate effect of lockups, stake sizes and reward rates on total supply staked. It is built for edge network but can easily be adapted to any token. 
 
+Requires numpy and streamlit to run, install via
+`pip install numpy streamlit`
+
+Run the app:
+`streamlit run staking_sim_streamlitapp.py`
+
 ## About the Staking Simulator
 This webapp simulates staking behavior in the LP staking contract over a one-year period. It uses the [hytopia lp staking model](https://docs.hytopia.com/docs/stake-to-liquidity-pool) (lockup periods / multipliers) as a baseline 
 The simulation dynamically illustrates how various factors like lockup intervals, multipliers, and user strategies impact the staking process and reward distribution.
