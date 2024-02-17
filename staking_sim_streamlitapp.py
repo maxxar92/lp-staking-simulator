@@ -10,7 +10,7 @@ st.set_page_config(layout="wide")
 
 
 # Constants
-SIMULATION_DAYS = st.sidebar.selectbox("Simulation Days", [365, 730])
+SIMULATION_DAYS = st.sidebar.selectbox("Simulation Days", [180, 365, 730])
 TOTAL_SUPPLY = 50000000  # 50M tokens
 
 
@@ -78,24 +78,34 @@ def calculate_effective_apr(user_stake, total_reward, _):
 st.title("Staking Simulator")
 
 # Parameters
-lockup_intervals = [30, 60, 90, 180, 360]  # Days
-st.sidebar.subheader("Parameters")
-st.sidebar.write("Lockup Days:", str(lockup_intervals))
-lockup_multipliers = st.sidebar.text_input("Corresponding Multipliers (comma separated)", value="1, 2, 3, 6, 12")
-total_rewards = st.sidebar.number_input("Total EDGE Rewards Over Simulation Period", min_value=1000, max_value=500000000, value=1000000)
 
-# Parse lockup multipliers
+st.sidebar.subheader("Parameters")
+#lockup_intervals = [30, 60, 90, 180, 360]  # Days
+lockup_intervals = st.sidebar.text_input("Lockup Intervals (comma separated)", value="30, 60, 90, 180")#, 360")
+lockup_multipliers = st.sidebar.text_input("Corresponding Multipliers (comma separated)", value="1, 2, 3, 6")#, 12")
+
+# check if the lockup multipliers are valid
 try:
+    lockup_intervals = [int(interval.strip()) for interval in lockup_intervals.split(",")]
     lockup_multipliers = [int(multiplier.strip()) for multiplier in lockup_multipliers.split(",")]
 except ValueError:
-    st.sidebar.error("Invalid format for lockup multipliers. Please enter integers separated by commas.")
+    st.sidebar.error("Invalid format for lockup multipliers/intervals. Please enter integers separated by commas.")
     st.stop()
+    
+if len(lockup_intervals) != len(lockup_multipliers):
+    st.sidebar.error("Lockup intervals and multipliers must have the same number of entries.")
+    st.stop()
+
+st.sidebar.write("Lockup Days x Multiplier: ")
+st.sidebar.write("  ".join([f"{lockup_intervals[i]}x{lockup_multipliers[i]}" for i in range(len(lockup_intervals))]))
+total_rewards = st.sidebar.number_input("Total EDGE Rewards Over Simulation Period", min_value=1000, max_value=500000000, value=600000)
 
 ##### APR-based Staking #####
 
 # Option for APR-based staking
-enable_apr_based_staking = st.sidebar.checkbox("Enable APR-based Staking ", value=True, help="A user only stakes if the estimated APR of his randomly chosen setting is above the APR threshold. Note that the effective APR can still be lower, as more users join the staking pool.")
+enable_apr_based_staking = st.sidebar.checkbox("Enable APR-based Staking ", value=True, help="A user only stakes if the estimated APR is above the minimum threshold. Note that the effective APR can still be lower, as more users join the staking pool. Users lockup period is chosen randomly from the list.")
 num_users = None
+fuzzy_threshold = False
 MINIMUM_APR_THRESHOLD = None
 enable_dynamic_user_selection = False
 if enable_apr_based_staking:
@@ -104,6 +114,8 @@ if enable_apr_based_staking:
     enable_dynamic_user_selection = st.sidebar.checkbox("Enable per-day join probability", value=True, help="Users Join with a certain probability each day, instead of picking random start dates.")
     if not enable_dynamic_user_selection:
         min_users = st.sidebar.number_input("Minimum Number of Stakers", min_value=1, max_value=100, value=20)
+    else:
+        fuzzy_threshold = st.sidebar.checkbox("Fuzzy Threshold", value=True, help="APR threshold is set by sampling within a range of +-10\% around the set threshold (normal distribution centered on threshold). This can be used to simulate that people have different expectations of the APR.")
     max_users = 10000
 else:
     num_users = st.sidebar.number_input("Number of Users", min_value=1, max_value=100, value=20)
@@ -135,8 +147,9 @@ def create_user_stakes_with_apr_condition(num_users, simulation_days, lockup_int
         estimated_rewards = total_rewards * (user_weight / (total_weight + user_weight))
         estimated_apr = (estimated_rewards / lp_amount) * 100
 
+        adjusted_threshold = min_apr_threshold + np.random.normal(0, 10) if fuzzy_threshold else min_apr_threshold
         # User stakes only if estimated APR is higher than the threshold
-        if not enable_apr_based_staking or estimated_apr >= min_apr_threshold:
+        if not enable_apr_based_staking or estimated_apr >= adjusted_threshold:
             start_day = random.randint(0, int(simulation_days * 0.9))
             started_at = start_day * 86400
             user_stake = UserStake(lp_amount, lockup_interval_index, started_at, estimated_apr)
@@ -190,8 +203,9 @@ def create_user_stakes_with_dynamic_apr_condition(simulation_days, lockup_interv
                 estimated_rewards = total_rewards * (user_weight / (total_weight + user_weight))
                 estimated_apr = (estimated_rewards / lp_amount) * 100
 
+                adjusted_threshold = min_apr_threshold + np.random.normal(0, 10) if fuzzy_threshold else min_apr_threshold
                 # User stakes only if estimated APR is higher than the threshold
-                if not enable_apr_based_staking or estimated_apr >= min_apr_threshold:
+                if not enable_apr_based_staking or estimated_apr >= adjusted_threshold:
                     started_at = current_day * 86400
                     user_stake = UserStake(lp_amount, lockup_interval_index, started_at, estimated_apr)
                     user_stakes.append(user_stake)
@@ -329,7 +343,7 @@ st.write(f"Average Stake Length: {average_stake_length} days")
 
 st.markdown("""
 ## About the Staking Simulator
-This webapp simulates staking behavior in the LP staking contract over a one-year period. The simulation dynamically illustrates how various factors like lockup intervals, multipliers, and user strategies impact the staking process and reward distribution.
+This webapp simulates staking behavior in the LP staking contract over a chosen period. The simulation dynamically illustrates how various factors like lockup intervals, multipliers, and user strategies impact the staking process and reward distribution.
 The interaction between user choices and overall staking behavior creates complex dynamics. For instance, as more users stake, the reward pool is shared among more participants, potentially reducing individual returns.
             
 ### Key Aspects of the Simulation:
@@ -338,7 +352,7 @@ The interaction between user choices and overall staking behavior creates comple
 
 - **Stake amounts** per user are randomly generated within the set range following the pareto distribution (many small fish, few whales), the histogram can be seen in the sidebar. The simulation then calculates the rewards and APR for each user based on these parameters. 
             
-- **Total Rewards**: The simulation distributes a fixed amount of rewards over a year (or two), with the distribution based on the staked amount, lockup period, and the number of participating users. 
+- **Total Rewards**: The simulation distributes a fixed amount of rewards over a 180 days (or 365/730), with the distribution based on the staked amount, lockup period, and the number of participating users. 
 
 - **APR-based Staking Option**: Tries to simulate market psychology, users stake only if their estimated APR exceeds a set threshold. If disabled, the simulation uses a fixed number of users who stake randomly.
     - **Estimated APR**: Calculated at the time of staking, representing the potential return based on current conditions.
